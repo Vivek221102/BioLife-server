@@ -30,15 +30,26 @@ const con = mysql.createConnection(
     }
 )
 
-// multer for file save in public folder
+// // multer for file save in public folder
+// const storage = multer.diskStorage({
+//     destination:path.join(__dirname,'./public/'),
+//     filename: function(req, file, callback){
+//         callback(null,Date.now() + '-' + path.extname(file.originalname))
+//     }
+// })
+
+
+// Set up disk storage for Multer
 const storage = multer.diskStorage({
-    destination:path.join(__dirname,'./public/'),
-    filename: function(req, file, callback){
-        callback(null,Date.now() + '-' + path.extname(file.originalname))
+    // Specify the destination directory where files will be saved
+    destination: path.join(__dirname, './public/'),
+
+    // Define the filename for the saved file
+    filename: function(req, file, callback) {
+        // Generate a unique filename using the current timestamp and the original file extension
+        callback(null, Date.now() + '-' + path.extname(file.originalname));
     }
-})
-
-
+});
 
 ///////////// sending user's data from user side to database by server/////////
 
