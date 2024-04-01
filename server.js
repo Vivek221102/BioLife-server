@@ -1,4 +1,5 @@
 const mysql = require("mysql");
+require('dotenv').config();
 // import mysql from 'mysql';
 var express= require("express");
 var cors = require("cors");
@@ -16,8 +17,10 @@ var Jwtkey = "vivek";
 var app = express();
 app.use(cors());
 app.use(express.json());
-const port = 1121;
-app.listen(port);
+// const port = 1121;
+app.listen(process.env.PORT, ()=>{
+    console.log(`Port: ${process.env.PORT}`);
+});
 
 app.use("/public", express.static("public"));
 
@@ -26,10 +29,10 @@ const con = mysql.createConnection(
         host:"localhost",
         user:"root",
         password:"",
-        database:"bio_store"
+        database:"biolife"
     }
 )
-
+// https://biostore-server.cyclic.app/
 // // multer for file save in public folder
 // const storage = multer.diskStorage({
 //     destination:path.join(__dirname,'./public/'),
@@ -200,14 +203,6 @@ app.get("/api/catfetch",(req,res)=>{
     })
 })
 
-app.get("/api/faqfetch",(req,res)=>{
-    const sel = "select * from contectus";
-
-    con.query(sel,(err,result)=>{
-       
-        res.send(result);
-    })
-})
 
 app.get("/api/fetchordervals",(req,res)=>{
     const sel = "SELECT DISTINCT book_id,when_oredered FROM orderitem_tbl";
@@ -405,7 +400,7 @@ app.post("/api/addcart",(req,res)=>{
     const sel = "select * from  tbl_addtocart where user_id=? and product_id=?"
     con.query(sel,[uid, pdtid],(err,result)=>{
         
-        if(result.length > 0 && result.status!='ordered'){
+        if(result.length > 0){
           res.send({msg:"alrady in cart"})
         //   console.log(result);
                 }
@@ -444,7 +439,7 @@ app.get("/api/fetchcart",(req,res)=>{
     var uid=req.query.uid;
     // var pid=req.query.p_id;
    
-    const sel = "select a.*, b.* from tbl_addtocart as b,tbl_productdetail as a where a.p_id = b.product_id and b.user_id=? and b.status='unordered' ";
+    const sel = "select a.*, b.* from tbl_addtocart as b,tbl_productdetail as a where a.p_id = b.product_id and b.user_id=?";
     con.query(sel,[uid],(err, result)=>{
 // console.log(result);
         res.send(result);
@@ -538,30 +533,6 @@ app.post("/api/removeitemwish",(req,res)=>{
 })
 
 
-// app.post("/api/insertorder", (req, res) => {
-//     let oid = Math.floor(100000 + Math.random() * 900000);
-//     let uid = req.body.uid;
-//     let rwd = req.body.rwd;
-//     console.log(rwd);
-//     let prc = req.body.prc;
-//     console.log(`Order ID: ${oid}, User ID: ${uid} , price: ${prc}`);
-
-//         //  con.query("INSERT INTO orderitem_tbl (qty, pdt_id, prc) SELECT quantity, product_id FROM tbl_addtocart WHERE user_id=?",[oid, uid, prc])
-    
-//         const ins = "INSERT INTO orderitem_tbl (user_id, p_id, qty, book_id, prc, used_reward) SELECT a.user_id, a.product_id, a.quantity, ?, ?, ? FROM add_to_cart a LEFT JOIN orderitem_tbl b ON a.user_id = b.user_id AND a.product_id = b.pdt_id AND a.quantity = b.qty WHERE a.user_id = ? AND b.pdt_id IS NULL;"
-//         con.query(ins, [oid, prc, rwd, uid], (err, result) => {
-//             if (err) {
-//                 console.log({ msg: "error occurred" });
-//             } else {
-//                 con.query("update tbl_addtocart set status ='ordered' where user_id= ?", [uid],(err,result) => {
-//                     console.log(result);
-//                     res.send(result);
-//                 })
-//             }
-//         })
-//     })
-
-
 app.post("/api/insertorder", (req, res) => {
     let oid = Math.floor(100000 + Math.random() * 900000);
     let uid = req.body.uid;
@@ -576,13 +547,19 @@ app.post("/api/insertorder", (req, res) => {
             console.log({ msg: "Error occurred", error: err }); // Log the error message
             res.status(500).json({ error: "An error occurred while inserting order" }); // Send appropriate response to the client
         } else {
-            con.query("UPDATE tbl_addtocart SET status ='ordered' WHERE user_id = ?", [uid], (err, result) => {
-                if (err) {
-                    console.log({ msg: "Error occurred while updating cart status", error: err }); // Log the error message
-                    res.status(500).json({ error: "An error occurred while updating cart status" }); // Send appropriate response to the client
-                } else {
-                    // console.log(result);
+            con.query("Delete From tbl_addtocart  WHERE user_id = ?", [uid], (err, result) => {
+                if (rwd == 0) {
                     res.send(result);
+                } else {
+                    const udt = "UPDATE tbl_rewards SET total_amount = total_amount - ?, status = 'used' WHERE reward_id = (SELECT MIN(reward_id) FROM tbl_rewards WHERE user_id = ?)";
+                    con.query(udt, [rwd, uid], (err, rst) => {
+                        if (err) {
+                            res.send({ msg: "error updating reward" });
+                        } else {
+                            console.log("Total amount updated:", rst.changedRows);
+                            res.send({ msg: "order placed successfully" });
+                        }
+                    });
                 }
             });
         }
@@ -594,7 +571,7 @@ app.post("/api/insertorder", (req, res) => {
 app.get("/api/fetchorder",(req,res)=>{
     let uid = req.query.uid;
   
-    const sel = "SELECT DISTINCT book_id,when_oredered FROM orderitem_tbl where user_id=?"
+    const sel = "SELECT DISTINCT book_id,when_oredered,prc FROM orderitem_tbl where user_id=?"
     con.query(sel,[uid],(err,result)=>{
         res.send(result);
 })
@@ -618,7 +595,7 @@ app.get("/api/getdatainvoice",(req,res)=>{
 app.get("/api/getcount",(req,res)=>{
         let uid = req.query.uid;
         //  console.log(uid);
-     const sel= "SELECT COUNT(user_id) as count from tbl_addtocart where status='unordered' and user_id=? ";
+     const sel= "SELECT COUNT(user_id) as count from tbl_addtocart where     user_id=? ";
     con.query(sel,[uid],(err,result)=>{
         // console.log(result)
         res.send(result);  
@@ -758,83 +735,194 @@ app.get("/api/getlistreward",(req,res)=>{
 
 
 
-        app.post("/api/forgotpass", (req, res) => {
-            const email = req.body.email; // Assuming the email address is sent in the 'email' field of the request body
-            // console.log(email);
-            con.query("SELECT * FROM tbl_registration WHERE mail_id = ?", [email], (err, result) => {
+        // app.post("/api/forgotpass", (req, res) => {
+        //     const email = req.body.email; // Assuming the email address is sent in the 'email' field of the request body
+        //     // console.log(email);
+        //     con.query("SELECT * FROM tbl_registration WHERE mail_id = ?", [email], (err, result) => {
+        //         if (result.length > 0) {
+        //           console.log(result);
+        //             const name = result[0].first_name;
+        //             const pass = result[0].pass;
+        // // console.log(name);
+        //             const smtpTransport = nodemailer.createTransport({
+        //                 host: "smtp.gmail.com",
+        //                 port: 587,
+        //                 secure: false,
+        //                 auth: {
+        //                     user: "vsp22112002@gmail.com",
+        //                     pass: "aqaxzcipeheivkvw",
+        //                 },
+        //             });
+        
+        //             const message = {
+        //                 from: "vsp22112002@gmail.com",
+        //                 to: email,
+        //                 subject: "Password Reset for Your Biolife Store Account",
+        //                 // text: `Dear ${name},\n\n` +
+        //                 //     `You have requested a password reset for your Biolife Store account.\n\n` +
+        //                 //     `Your new password is: ${pass}\n\n` +
+        //                 //     `If you did not request this change, please ignore this email or contact support.\n\n` +
+        //                 //     `Best regards,\n` +
+        //                 //     `The Biolife Store Team`
+
+
+        //                 html: `
+        //                 <html>
+        //                     <body style="font-family: Arial, sans-serif;">
+                           
+        //                     <div style="text-align: center; margin-bottom: 20px;">
+        //                          <img src="./logo.png" alt="Biolife Store Logo" style="max-width: 200px;">
+        //                     </div>
+        
+        //                         <h2 style="color: #333;">Password Reset Request</h2>
+        //                         <p>Dear ${name},</p>
+                
+        //                         <p>We've received a request to reset the password for your Biolife Store account.</p>
+                
+        //                         <p>Your new password is: <strong>${pass}</strong></p>
+                
+        //                         <p>If you didn't make this request, please ignore this email or contact our support team immediately.</p>
+                
+        //                         <p style="margin-top: 30px; color: #888;">
+        //                             Best regards,<br>
+        //                             The Biolife Store Team
+        //                         </p>
+                
+        //                         <p style="margin-top: 20px; font-size: 12px; color: #999;">
+        //                             This is an automated message. Please do not reply to this email.
+        //                         </p>
+                
+        //                     </body>
+        //                 </html>
+        //             `
+        //             };
+        
+        //             smtpTransport.sendMail(message, (error, info) => {
+        //                 if (error) {
+        //                     console.log(error);
+        //                     res.status(500).send({ message: "Error sending email" });
+        //                 } else {
+        //                     console.log("Email sent: " + info.response);
+        //                     res.send({ message: "Email sent successfully" });
+        //                 }
+        //             });
+        //         } else {
+        //             res.status(404).send({ message: "You do not have an account" });
+        //         }
+        //     });
+        // });
+        
+        // app.post("/api/forgotpass", (req,resp)=>{
+   
+        //     var email = req.body.email;
+        // //console.log(email)
+        //     const query="Select * from tbl_registration where mail_id=?";
+        //     con.query(query,[email],(err,result)=>{
+        //         if(result.length > 0)
+        //         {
+        //            resp.send(result);
+        //            var pass=result[0].pass;
+        //             var name=result[0].first_name;
+                    
+        //             const transporter = nodemailer.createTransport({
+                       
+        //                 host: "smtp.gmail.com",
+        //                 port: 587,
+        //                 secure: true,
+        //                 auth: {
+        //                   user: "vsp22112002@gmail.com",
+        //                   pass: "aqaxzcipeheivkvw",
+        //                 },
+        //               });
+                      
+        //               const message = {
+        //                 from: "vsp22112002@gmail.com",
+        //                 to: email,
+                      
+        //                 subject: "biolife",
+        //                 text: "Hello , "  + name +"!"+ "\n" +" Your Passwors is --->>" + pass + "<<--- .",
+        //               };
+            
+        //               transporter.sendMail(message, (error, info) => {
+        //                 if (error) {
+        //                   console.error(error);
+        //                 } else {
+        //                   resp.send(result);
+        //                   console.log("Email sent:", info.response);
+        //                 }
+                     
+        //               });
+            
+        //                console.log(pass);
+        //             }
+        //             else
+        //             {
+        //                 resp.send({message:"You do not have an account "});
+        //             }
+        //         });
+        //     });
+       
+        app.post("/api/forgotpass", (req, resp) => {
+            var email = req.body.email;
+            const query = "SELECT * FROM tbl_registration WHERE mail_id=?";
+            con.query(query, [email], (err, result) => {
                 if (result.length > 0) {
-                  console.log(result);
-                    const name = result[0].first_name;
-                    const pass = result[0].pass;
-        // console.log(name);
-                    const smtpTransport = nodemailer.createTransport({
+                    var pass = result[0].pass;
+                    var name = result[0].first_name;
+                    const transporter = nodemailer.createTransport({
                         host: "smtp.gmail.com",
-                        port: 587,
-                        secure: false,
+                        port: 465,
+                        secure: true,
                         auth: {
                             user: "vsp22112002@gmail.com",
                             pass: "aqaxzcipeheivkvw",
                         },
                     });
-        
                     const message = {
                         from: "vsp22112002@gmail.com",
                         to: email,
-                        subject: "Password Reset for Your Biolife Store Account",
-                        // text: `Dear ${name},\n\n` +
-                        //     `You have requested a password reset for your Biolife Store account.\n\n` +
-                        //     `Your new password is: ${pass}\n\n` +
-                        //     `If you did not request this change, please ignore this email or contact support.\n\n` +
-                        //     `Best regards,\n` +
-                        //     `The Biolife Store Team`
-
-
+                        subject: "biolife",
                         html: `
-                        <html>
-                            <body style="font-family: Arial, sans-serif;">
-                           
-                            <div style="text-align: center; margin-bottom: 20px;">
-                                 <img src="./logo.png" alt="Biolife Store Logo" style="max-width: 200px;">
-                            </div>
-        
-                                <h2 style="color: #333;">Password Reset Request</h2>
-                                <p>Dear ${name},</p>
-                
-                                <p>We've received a request to reset the password for your Biolife Store account.</p>
-                
-                                <p>Your new password is: <strong>${pass}</strong></p>
-                
-                                <p>If you didn't make this request, please ignore this email or contact our support team immediately.</p>
-                
-                                <p style="margin-top: 30px; color: #888;">
-                                    Best regards,<br>
-                                    The Biolife Store Team
-                                </p>
-                
-                                <p style="margin-top: 20px; font-size: 12px; color: #999;">
-                                    This is an automated message. Please do not reply to this email.
-                                </p>
-                
-                            </body>
-                        </html>
-                    `
-                    };
-        
-                    smtpTransport.sendMail(message, (error, info) => {
-                        if (error) {
-                            console.log(error);
-                            res.status(500).send({ message: "Error sending email" });
-                        } else {
-                            console.log("Email sent: " + info.response);
-                            res.send({ message: "Email sent successfully" });
-                        }
-                    });
+                                        <html>
+                                            <body style="font-family: Arial, sans-serif;">
+                                           
+                                                <h2 style="color: #333;">Password Reset Request</h2>
+                                                <p>Dear ${name},</p>
+                                
+                                                <p>We've received a request to reset the password for your Biolife Store account.</p>
+                                
+                                                <p>Your new password is: <strong>${pass}</strong></p>
+                                
+                                                <p>If you didn't make this request, please ignore this email or contact our support team immediately.</p>
+                                
+                                                <p style="margin-top: 30px; color: #888;">
+                                                    Best regards,<br>
+                                                    The Biolife Store Team
+                                                </p>
+                                
+                                                <p style="margin-top: 20px; font-size: 12px; color: #999;">
+                                                    This is an automated message. Please do not reply to this email.
+                                                </p>
+                                
+                                            </body>
+                                        </html>
+                                    `                    };
+                                    transporter.sendMail(message, (error, info) => {
+                                                        if (error) {
+                                                          console.error(error);
+                                                        } else {
+                                                          resp.send(result);
+                                                          console.log("Email sent:", info.response);
+                                                        }
+                                                     
+                                                      });
                 } else {
-                    res.status(404).send({ message: "You do not have an account" });
+                    resp.status(404).send({ message: "You do not have an account" });
                 }
             });
         });
         
+
 app.post("/api/insertreview",(req,res)=>{
     const pid = req.body.id;
     const uid = req.body.uid;
@@ -846,7 +934,7 @@ app.post("/api/insertreview",(req,res)=>{
     // console.log(pid +' '+uid +" "+ rate + ' '+mail+' '+review);
 
     con.query("insert into tbl_review (pdt_id, user_id, user_name, mail_id, rating, review_msg) values (?, ?, ?, ? ,?, ?)", [pid,uid,name,mail,rate,review], (err,result)=>{
-        // console.log(result);
+        // console.log(result);                     
         res.send(result);
     })
 })
@@ -854,15 +942,23 @@ app.post("/api/insertreview",(req,res)=>{
 app.get("/api/fatchreview",(req,res)=>{
   const uid=req.query.uid;
   const pid=req.query.id;
-    console.log("product"+pid+"\n"+uid); 
+    // console.log("product"+pid+"\n"+uid); 
 
-  con.query("SELECT * FROM tbl_review  WHERE user_id= ? and pdt_id= ?",[uid, pid],(err,result)=>{
-        console.log(result);
+  con.query("SELECT * FROM tbl_review  WHERE pdt_id= ?",[pid],(err,result)=>{
+        // console.log(result);
          res.send(result);
   
   })
 })
 
+app.get("/api/faqfetch",(req,res)=>{
+    const sel = "select * from tbl_review";
+
+    con.query(sel,(err,result)=>{
+       
+        res.send(result);
+    })
+})
 
 
 
@@ -886,9 +982,78 @@ app.get("/api/fetchorderdetails",(req,res)=>{
 
 
 
+app.post("/api/approveoid",(req,res)=>{
+   const bid =req.body.bid;
+   console.log(bid);
+    con.query(" UPDATE orderitem_tbl SET status='Approve' WHERE book_id =? ",[bid],(err,result) =>{
+        if (err) throw err ;    
+    // console.log(result)
+        res.send(result);   
+   
+    });
+})
+
+app.post("/api/rejectoid",(req,res)=>{
+   
+    const bid =req.body.bid;
+    console.log(bid);
+     con.query(" UPDATE orderitem_tbl SET status='Reject' WHERE book_id =? ",[bid],(err,result) =>{
+         if (err) throw err ;
+     // console.log(result)
+         res.send(result);
+    
+     });    
+})
+
+app.get("/api/acceptedord",(req,res)=>{
+   
+    con.query("select * from orderitem_tbl where status='Approve' ",(err,result) =>{
+        if (err) throw err ;
+   // console.log(result)
+        res.send(result);
+   
+    });
+});
+
+app.get("/api/rejectord",(req,res)=>{
+   
+    con.query("select * from orderitem_tbl where status='Reject' ",(err,result) =>{
+        if (err) throw err ;
+   // console.log(result)
+        res.send(result);
+   
+    });
+});
+
+
+app.post("/api/sendresponse",(req,res)=>{
+   
+    const {uid, pid, respo} = req.body
+    console.log(`${pid}, ${uid}  , ${respo}`);
+
+    con.query("UPDATE tbl_review SET response = ? WHERE user_id = ? AND pdt_id = ? ",[respo, uid, pid],(err,result) =>{
+        if (err) throw err ;
+    console.log(result)
+        res.send(result);
+   
+    });
+});
+
+
+app.post("/api/checkques",(req,res)=>{
+    let que=req.body.input;
+    console.log(que);
+
+    con.query("SELECT * FROM tbl_chatbot WHERE question LIKE '%"+ que +"%'",[que],(err,result)=>{
+        console.log(result)
+        res.send(result);
+    })
+   
+})
+
 con.connect(function(err){
     if(err) 
     throw err
-    console.log(`Connection build on Port ${port}`)
+    console.log(`Connection build`)
 });
     
