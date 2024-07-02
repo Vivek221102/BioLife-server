@@ -2,32 +2,6 @@ const itemroute = require('express').Router();
 const con = require('../config/db')
 
 
-/////// in admin panel using post method add product detail on server to database. /////////
-itemroute.post("/api/itemdetails",(req, resp)=>{
-    let upload = multer({storage:storage}).single('p_image');
-    upload (req,resp,function(err){
-        console.log(err);
-        if(!req.file){
-            console.log("Not found");
-        }
-
-        else{
-             var i_name = req.body.i_name;
-            var i_code = Math.floor(100000 + Math.random() * 900000);
-            var i_category = req.body.i_category;
-            var i_price = req.body.i_price;
-            var ret_price = req.body.ret_price;
-            var i_des =req.body.i_des; 
-            var p_image=req.file.filename;
-
-            // console.log(i_name)
-            // console.log(p_image)
-            const ins="Insert into tbl_productdetail(p_name, p_uni_code, p_category, p_img, p_price, p_ret_price, p_desc) values (?, ?, ?, ?, ?, ?, ?)";
-            con.query(ins,[i_name, i_code, i_category, p_image, i_price, ret_price, i_des]);
-            resp.json();
-        }
-    })
-});
 
 //display item user 
 itemroute.get("/api/productlist", (req, res) => {

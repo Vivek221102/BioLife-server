@@ -6,7 +6,6 @@ var body_parser = require("body-parser");
 var multer = require("multer");
 const path = require("path");
 const { request } = require("http");
-const nodemailer = require("nodemailer");
 
 const con = require('./config/db');
 const authroute = require('./routes/authRoute')
@@ -42,17 +41,7 @@ app.listen(process.env.PORT, ()=>{
 
 app.use("/public", express.static("public"));
 
-
-// https://biostore-server.cyclic.app/
-// // multer for file save in public folder
-// const storage = multer.diskStorage({
-//     destination:path.join(__dirname,'./public/'),
-//     filename: function(req, file, callback){
-//         callback(null,Date.now() + '-' + path.extname(file.originalname))
-//     }
-// })
-
-
+ 
 
 // Set up disk storage for Multer
 const storage = multer.diskStorage({
@@ -66,11 +55,40 @@ const storage = multer.diskStorage({
     }
 });
 
-
-
 app.get("/",(req,res)=>{
     res.send("<h1>welcome to biolife server</h1>")
 })
+
+
+
+/////// in admin panel using post method add product detail on server to database. /////////
+itemroute.post("/api/itemdetails",(req, resp)=>{
+    let upload = multer({storage:storage}).single('p_image');
+    upload (req,resp,function(err){
+        console.log(err);
+        if(!req.file){
+            console.log("Not found");
+        }
+
+        else{
+             var i_name = req.body.i_name;
+            var i_code = Math.floor(100000 + Math.random() * 900000);
+            var i_category = req.body.i_category;
+            var i_price = req.body.i_price;
+            var ret_price = req.body.ret_price;
+            var i_des =req.body.i_des; 
+            var p_image=req.file.filename;
+
+            // console.log(i_name)
+            // console.log(p_image)
+            const ins="Insert into tbl_productdetail(p_name, p_uni_code, p_category, p_img, p_price, p_ret_price, p_desc) values (?, ?, ?, ?, ?, ?, ?)";
+            con.query(ins,[i_name, i_code, i_category, p_image, i_price, ret_price, i_des]);
+            resp.json();
+        }
+    })
+});
+
+
 
 app.post("/api/registration",(req,res)=>{
     var first =req.body.first_name;

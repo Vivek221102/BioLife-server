@@ -72,6 +72,7 @@ profileroute.post("/api/changepassadmin",(req,res)=>{
     })
 })
 
+const nodemailer = require("nodemailer");
 
 profileroute.post("/api/forgotpass", (req, resp) => {
     var email = req.body.email;
